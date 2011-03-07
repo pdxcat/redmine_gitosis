@@ -1,0 +1,2 @@
+#!/bin/bash
+exec ssh -i /path/to/rails/vendor/plugins/redmine_gitosis/extra/ssh/private_key "$@"

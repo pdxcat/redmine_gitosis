@@ -1,18 +1,22 @@
 require 'lockfile'
 require 'inifile'
 require 'net/ssh'
+require 'tmpdir'
 
 module Gitosis
   # server config
-  GITOSIS_URI = 'git@your-server.com:/gitosis-admin.git'
-  GITOSIS_BASE_PATH = '/opt/gitosis/repositories/'
+  #GITOSIS_URI = 'git@projects-test.cecs.pdx.edu:gitosis-admin.git'
+  #GITOSIS_URI = '/www/git/gitosis-admin.git'
+  GITOSIS_URI = 'git@projects.cecs.pdx.edu:gitosis-admin.git'
+  GITOSIS_BASE_PATH = '/www/git/'
+  SUBVERSION_BASE_PATH = 'file:///www/svn/'
   
   # commands
   ENV['GIT_SSH'] = SSH_WITH_IDENTITY_FILE = File.join(RAILS_ROOT, 'vendor/plugins/redmine_gitosis/extra/ssh_with_identity_file.sh')
   
   def self.destroy_repository(project)
-    path = File.join(GITOSIS_BASE_PATH, "#{project.identifier}.git")
-    `rm -Rf #{path}`
+  #  path = File.join(GITOSIS_BASE_PATH, "#{project.identifier}.git")
+  #  `rm -Rf #{path}`
   end
   
   def self.update_repositories(projects)
@@ -28,7 +32,10 @@ module Gitosis
       Dir.mkdir local_dir
 
       # clone repo
-      `git clone #{GITOSIS_URI} #{local_dir}/gitosis`
+      ActionController::Base::logger.info "git: git clone #{GITOSIS_URI} #{local_dir}/gitosis 2>&1"
+      IO.popen("git clone #{GITOSIS_URI} #{local_dir}/gitosis 2>&1") do |process|
+        process.each_line { |line| ActionController::Base::logger.info "git: #{line}" }
+      end 
     
       changed = false
     
@@ -40,12 +47,12 @@ module Gitosis
     
         # write key files
         users.map{|u| u.gitosis_public_keys.active}.flatten.compact.uniq.each do |key|
-          File.open(File.join(local_dir, 'gitosis/keydir',"#{key.identifier}.pub"), 'w') {|f| f.write(key.key.gsub(/\n/,'')) }
+          File.open("#{local_dir}/gitosis/keydir/#{key.identifier}.pub", 'w') {|f| f.write(key.key.gsub(/\n/,'').chomp) }
         end
 
         # delete inactives
         users.map{|u| u.gitosis_public_keys.inactive}.flatten.compact.uniq.each do |key|
-          File.unlink(File.join(local_dir, 'gitosis/keydir',"#{key.identifier}.pub")) rescue nil
+          File.unlink("#{local_dir}/gitosis/keydir/#{key.identifier}.pub") rescue nil
         end
     
         # write config file
@@ -63,9 +70,21 @@ module Gitosis
     
       if changed
         # add, commit, push, and remove local tmp dir
-        `cd #{File.join(local_dir,'gitosis')} ; git add keydir/* gitosis.conf`
-        `cd #{File.join(local_dir,'gitosis')} ; git commit -a -m 'updated by Redmine Gitosis'`
-        `cd #{File.join(local_dir,'gitosis')} ; git push`
+        dir = Dir.pwd
+        Dir.chdir("#{local_dir}/gitosis")
+        ActionController::Base::logger.info "git: git add keydir/* gitosis.conf"
+        IO.popen("git add keydir/* gitosis.conf") do |process|
+          process.each_line { |line| ActionController::Base::logger.info "git: #{line}" }
+        end 
+        ActionController::Base::logger.info "git: git commit -a -m 'updated by Redmine Gitosis'"
+        IO.popen("git commit -a -m 'updated by Redmine Gitosis'") do |process|
+          process.each_line { |line| ActionController::Base::logger.info "git: #{line}" }
+        end 
+        ActionController::Base::logger.info "git: git push"
+        IO.popen("git push") do |process|
+          process.each_line { |line| ActionController::Base::logger.info "git: #{line}" }
+        end 
+        Dir.chdir(dir)
       end
     
       # remove local copy
