@@ -2,8 +2,6 @@ require 'redmine'
 require 'user'
 
 require_dependency 'gitosis'
-require_dependency 'gitosis/patches/repositories_controller_patch'
-require_dependency 'gitosis/patches/repositories_helper_patch'
 
 Redmine::Plugin.register :redmine_gitosis do
   name 'Redmine Gitosis plugin'
