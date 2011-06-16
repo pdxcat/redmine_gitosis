@@ -39,7 +39,7 @@ module Gitosis
     
       changed = false
     
-      projects.select{|p| p.repository.is_a?(Repository::Git)}.each do |project|
+      projects.compact.select{|p| p.repository.is_a?(Repository::Git)}.each do |project|
         # fetch users
         users = project.member_principals.map(&:user).compact.uniq
         write_users = users.select{ |user| user.allowed_to?( :commit_access, project ) }
